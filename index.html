@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Hide the page until we know the user is logged in -->
+  <script>document.documentElement.style.visibility = 'hidden';</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="description" content="Practice quizzes, track your score, and retry incorrect questions for free.">
+  <title>QuizMaster - Online Quiz</title>
+  <!-- CSS file in the main repository folder -->
+  <link rel="stylesheet" href="./style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+  <script src="./supabase-config.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="./index.html">🧠 QuizMaster</a>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span id="userName" style="font-size:.9rem;opacity:.85;"></span>
+    <button id="themeToggle" class="btn secondary" type="button">
+      🌙 Theme
+    </button>
+    <button id="logoutBtn" class="btn secondary" type="button">
+      Logout
+    </button>
+  </div>
+</header>
+<main class="container">
+  <!-- HOME / DASHBOARD -->
+  <section id="homeScreen">
+    <div class="hero">
+      <p class="eyebrow">LEARN • PRACTICE • IMPROVE</p>
+      <h1>
+        Test your knowledge.<br>
+        <span>Level up.</span>
+      </h1>
+      <p>
+        Choose a category, answer questions, track your score
+        and retry incorrect answers.
+      </p>
+      <div class="stats">
+        <div>
+          <strong id="statAttempts">0</strong>
+          <span>Attempts</span>
+        </div>
+        <div>
+          <strong id="statAccuracy">0%</strong>
+          <span>Accuracy</span>
+        </div>
+        <div>
+          <strong id="statBest">—</strong>
+          <span>Best score</span>
+        </div>
+      </div>
+    </div>
+    <div class="section-heading">
+      <h2>Choose a category</h2>
+      <input
+        id="categorySearch"
+        type="search"
+        placeholder="Search categories..."
+        aria-label="Search quiz categories"
+      >
+    </div>
+    <div id="categoryGrid" class="category-grid"></div>
+    <div class="section-heading">
+      <h2>Recent attempts</h2>
+      <button id="clearHistory" class="text-btn" type="button">
+        Reset progress
+      </button>
+    </div>
+    <div id="historyList" class="history-list"></div>
+  </section>
+  <!-- QUIZ SCREEN -->
+  <section id="quizScreen" class="hidden">
+    <div class="quiz-topline">
+      <button id="backHome" class="text-btn" type="button">
+        ← Dashboard
+      </button>
+      <span id="quizMeta" class="pill">Quiz</span>
+      <strong id="timer">⏱ 5:00</strong>
+    </div>
+    <div class="progress-track">
+      <div id="progressBar"></div>
+    </div>
+    <div class="quiz-card">
+      <div class="question-meta">
+        <span id="questionCounter">QUESTION 1</span>
+        <button id="markReview" class="text-btn" type="button">
+          ☆ Mark for review
+        </button>
+      </div>
+      <h2 id="questionText"></h2>
+      <div id="optionsList" class="options-list"></div>
+      <div class="quiz-footer">
+        <button id="prevQuestion" class="btn secondary" type="button">
+          Previous
+        </button>
+        <span id="answeredCount">0 answered</span>
+        <button id="nextQuestion" class="btn primary" type="button">
+          Next →
+        </button>
+      </div>
+    </div>
+    <div class="question-nav-panel">
+      <strong>Question navigator</strong>
+      <div id="questionNav" class="question-nav"></div>
+      <button id="submitQuiz" class="btn submit" type="button">
+        Submit quiz
+      </button>
+    </div>
+  </section>
+  <!-- RESULT SCREEN -->
+  <section id="resultScreen" class="hidden">
+    <button id="resultHome" class="text-btn" type="button">
+      ← Dashboard
+    </button>
+    <div class="result-hero">
+      <p class="eyebrow">QUIZ COMPLETED</p>
+      <h1 id="resultTitle">Good work!</h1>
+      <p id="resultSubtitle"></p>
+      <div class="score-circle">
+        <strong id="resultPercent">0%</strong>
+        <span>Your score</span>
+      </div>
+      <div class="result-stats">
+        <div>
+          <strong id="resultCorrect">0</strong>
+          <span>Correct</span>
+        </div>
+        <div>
+          <strong id="resultWrong">0</strong>
+          <span>Incorrect</span>
+        </div>
+        <div>
+          <strong id="resultSkipped">0</strong>
+          <span>Skipped</span>
+        </div>
+        <div>
+          <strong id="resultTime">0:00</strong>
+          <span>Time taken</span>
+        </div>
+      </div>
+    </div>
+    <div class="result-actions">
+      <button id="retryWrong" class="btn primary" type="button">
+        Retry incorrect questions
+      </button>
+      <button id="newQuiz" class="btn secondary" type="button">
+        New quiz
+      </button>
+    </div>
+    <h2>Answer review</h2>
+    <div id="reviewList" class="review-list"></div>
+  </section>
+</main>
+<footer>
+  QuizMaster · Free Online Quiz · Made with HTML, CSS and JavaScript
+</footer>
+
+<script>
+  // 1) Check Supabase session  2) set window.QM_USER  3) then load question.js and app.js
+  (function () {
+    function fail(msg) {
+      document.documentElement.style.visibility = 'visible';
+      document.body.innerHTML =
+        '<div style="padding:24px;font-family:sans-serif;line-height:1.5">' +
+        '<h2>Setup problem</h2><p>' + msg + '</p>' +
+        '<p><a href="login.html">Go to login page</a></p></div>';
+    }
+
+    if (!window.supabase) {
+      fail('Supabase library did not load. Check the supabase script line in index.html and your internet connection.');
+      return;
+    }
+    if (!window.sb) {
+      fail('supabase-config.js is missing, has a typo in its name, or has an error.');
+      return;
+    }
+
+    function loadScript(src) {
+      return new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = function () { reject(new Error('Could not load ' + src)); };
+        document.body.appendChild(s);
+      });
+    }
+
+    window.sb.auth.getSession().then(function (res) {
+      var session = res.data && res.data.session;
+      if (!session) {
+        location.replace('login.html');
+        return;
+      }
+
+      var user = session.user;
+      var meta = user.user_metadata || {};
+      window.QM_USER = {
+        id: user.id,
+        email: user.email,
+        name: meta.name || user.email
+      };
+
+      document.getElementById('userName').textContent = 'Hi, ' + window.QM_USER.name;
+
+      document.getElementById('logoutBtn').addEventListener('click', async function () {
+        await window.sb.auth.signOut();
+        location.href = 'login.html';
+      });
+
+      return loadScript('./question.js')
+        .then(function () { return loadScript('./app.js'); })
+        .then(function () { document.documentElement.style.visibility = 'visible'; });
+    }).catch(function (err) {
+      fail('Error: ' + (err && err.message ? err.message : err));
+    });
+  })();
+</script>
+</body>
+</html>
